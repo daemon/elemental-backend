@@ -1,0 +1,51 @@
+apply plugin: 'idea'
+apply plugin: 'java'
+
+version = '0.0.1'
+
+repositories {
+    mavenCentral()
+    flatDir {
+       dirs 'libs'
+    }
+    maven {
+        url "https://oss.sonatype.org/content/repositories/snapshots"
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main']
+        }
+    }
+}
+
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+
+task serverJar(type: Jar) {
+    baseName = 'elemental-queue'
+    manifest {
+        attributes 'Implementation-Title': 'elemental-queue',
+                   'Implementation-Version': version,
+                   'Main-Class': 'net.rocketeer.elemental.ElementalServer'
+    }
+    from (sourceSets.main.output) {
+        include "net/rocketeer/elemental/**"
+    }
+    from ("src/main/resources") {
+        include "**"
+    }
+    from {
+        (configurations.compile - configurations.provided).collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+dependencies {
+    compile group: 'org.jocl', name: 'jocl', version: '2.0.0'
+}
+
+buildDir = 'bin'
