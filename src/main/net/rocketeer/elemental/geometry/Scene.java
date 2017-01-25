@@ -1,7 +1,15 @@
 package net.rocketeer.elemental.geometry;
+
+import java.util.Arrays;
+
 // TODO: Get rid of voxel, store 3d array as 1d in scene directly for efficiency
 public class Scene {
-  private final Voxel[][][] voxels;
+  private final int width;
+  private final int height;
+  private final int depth;
+  private double[] heatPoints;
+  private double[] buffer;
+
   private final Point origin;
 
   public Scene(int size) {
@@ -13,33 +21,28 @@ public class Scene {
   }
 
   public Scene(int width, int height, int depth, Point origin) {
-    this.voxels = new Voxel[width][height][depth];
-    for (int i = 0; i < width; ++i)
-      for (int j = 0; j < height; ++j)
-        for (int k = 0; k < depth; ++k)
-          this.setVoxel(i, j, k, new Voxel(Material.GENERIC, 0));
+    this.heatPoints = new double[width * height * depth];
+    Arrays.fill(this.heatPoints, 1);
+    this.buffer = new double[width * height * depth];
     this.origin = origin;
+    this.width = width;
+    this.height = height;
+    this.depth = depth;
   }
 
-  public Scene(Voxel[][][] voxels, Point origin) {
-    this.voxels = voxels;
-    this.origin = origin;
+  public double[] buffer() {
+    return this.buffer;
   }
 
-  public Voxel[][][] voxels() {
-    return this.voxels;
+  public void setHeat(int x, int y, int z, double heat) {
+    this.heatPoints[this.width * this.height * x + this.height * y + z] = heat;
   }
 
-  public void setVoxel(int x, int y, int z, Voxel voxel) {
-    voxel.setPoint(x, y, z);
-    this.voxels[x][y][z] = voxel;
+  public double[] heatPoints() {
+    return this.heatPoints;
   }
 
   public int length() {
-    return this.voxels[0].length * this.voxels[0][0].length * this.voxels.length;
-  }
-
-  public Voxel voxelAt(int x, int y, int z) {
-    return this.voxels[x][y][z];
+    return this.width * this.height * this.depth;
   }
 }
