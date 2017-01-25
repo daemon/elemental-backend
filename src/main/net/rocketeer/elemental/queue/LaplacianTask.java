@@ -8,6 +8,7 @@ import net.rocketeer.elemental.compute.conv.LaplacianParameterPack;
 import net.rocketeer.elemental.geometry.Scene;
 import org.jocl.Pointer;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 public class LaplacianTask implements Task<Boolean> {
@@ -26,14 +27,14 @@ public class LaplacianTask implements Task<Boolean> {
     double[] result = new double[this.scene.length()];
     try (Kernel convKernel = new Kernel(program.get(), "conv3d")) {
       a = System.currentTimeMillis();
-      ParameterPack params = new LaplacianParameterPack(this.scene.heatPoints(), this.scene.buffer(), 100).params();
+      ParameterPack params = new LaplacianParameterPack(this.scene.heatPoints(), this.scene.buffer()).params();
       b = System.currentTimeMillis();
       convKernel.bind(params);
       Engine.ResultPack pack = engine.execute(convKernel, new long[]{this.scene.length()}, new long[]{1});
       System.out.println(pack.returnCode());
       pack.readInto(2, Pointer.to(result)).finish();
     }
-    System.out.println(result[0]);
+    System.out.println(Arrays.toString(result));
     System.out.println("Timing (ms): " + (b - a));
     return true;
   }

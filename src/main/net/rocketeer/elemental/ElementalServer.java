@@ -16,7 +16,7 @@ public class ElementalServer implements Runnable {
 
   public static void main(String[] args) {
     ElementalServer server = new ElementalServer();
-    Scene scene = new Scene(100);
+    Scene scene = new Scene(4);
     server.queue(new LaplacianTask(scene));
     server.run();
   }
