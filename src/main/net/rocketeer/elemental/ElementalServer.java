@@ -1,32 +1,35 @@
 package net.rocketeer.elemental;
 
-import net.rocketeer.elemental.compute.base.Engine;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
 import net.rocketeer.elemental.geometry.Scene;
-import net.rocketeer.elemental.queue.LaplacianTask;
-import net.rocketeer.elemental.queue.Task;
 
 public class ElementalServer implements Runnable {
-  private final Engine engine;
-
-  public ElementalServer() {
-    Engine engine = new Engine();
-    engine.programRegistry().register("conv3d", "/programs/conv3d.cl");
-    this.engine = engine;
+  public interface Compute extends Library {
+    void conv3d(float[] field, float[] filter, float[] result, int fieldLength, int filterLength);
   }
 
   public static void main(String[] args) {
-    ElementalServer server = new ElementalServer();
-    Scene scene = new Scene(4);
+    /*ElementalServer server = new ElementalServer();
+    Scene scene = new Scene(64);
     server.queue(new LaplacianTask(scene));
-    server.run();
+    server.run();*/
+    Scene[] scenes = new Scene[20];
+    for (int i = 0; i < 20; ++i)
+      scenes[i] = new Scene(64);
+    Compute api = Native.loadLibrary("elemental", Compute.class);
+    float[] laplacian = new float[]{0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, -6, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0};
+    long a = System.currentTimeMillis();
+    int n = 20;
+    for (Scene scene : scenes)
+      api.conv3d(scene.heatPoints(), laplacian, scene.buffer(), 64, 3);
+    long b = System.currentTimeMillis();
+    System.out.println("Total time: " + (b - a));
+    System.out.println("Time per convolution: " + (b - a) / ((double) n));
   }
 
   @Override
   public void run() {
 
-  }
-
-  public <T> T queue(Task<T> task) {
-    return task.visit(this.engine);
   }
 }
