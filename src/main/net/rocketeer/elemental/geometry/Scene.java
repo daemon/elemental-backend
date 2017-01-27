@@ -7,6 +7,7 @@ public class Scene {
   private final int width;
   private final int height;
   private final int depth;
+  private final float[] heatCoeffs;
   private float[] heatPoints;
   private float[] buffer;
 
@@ -22,13 +23,18 @@ public class Scene {
 
   public Scene(int width, int height, int depth, Point origin) {
     this.heatPoints = new float[width * height * depth];
-    int a = (int) (Math.random() * 5);
-    Arrays.fill(this.heatPoints, a);
+    this.heatPoints[3] = 100;
     this.buffer = new float[width * height * depth];
+    this.heatCoeffs = new float[width * height * depth];
+    Arrays.fill(this.heatCoeffs, 0.1F);
     this.origin = origin;
     this.width = width;
     this.height = height;
     this.depth = depth;
+  }
+
+  public float[] heatCoeffs() {
+    return this.heatCoeffs;
   }
 
   public float[] buffer() {
