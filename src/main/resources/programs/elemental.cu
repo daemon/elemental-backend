@@ -30,7 +30,7 @@ __global__ void conv3d_gpu(float *field, float *filter, float *result, int field
 }
 
 __global__ void heat3d_gpu(float *field, float *laplacian, float *alpha, float dt) {
-  int gid = blockIdx.x;
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
   field[gid] += laplacian[gid] * alpha[gid] * dt;
 }
 
@@ -71,7 +71,7 @@ heat3d(float *field, float *buffer, float *alpha, float dt, int fieldLength) {
   cudaMalloc((void **) &dAlpha, fieldSize);
   cudaMemcpy(dAlpha, alpha, fieldSize, cudaMemcpyHostToDevice);
   cudaDeviceSynchronize();
-  heat3d_gpu<<<fieldLength * fieldLength * fieldLength, 1>>>(dField, dResult, dAlpha, dt);
+  heat3d_gpu<<<nBlocks, 16>>>(dField, dResult, dAlpha, dt);
   cudaDeviceSynchronize();
   cudaMemcpy(field, dField, fieldSize, cudaMemcpyDeviceToHost);
   cudaFree(dFilter);

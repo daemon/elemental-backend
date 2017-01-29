@@ -1,14 +1,10 @@
 package net.rocketeer.elemental.geometry;
 
-import java.util.Arrays;
-
-// TODO: Get rid of voxel, store 3d array as 1d in scene directly for efficiency
 public class Scene {
   private final int width;
   private final int height;
   private final int depth;
-  private final float[] heatCoeffs;
-  private float[] heatPoints;
+  private final HeatData heatData;
   private float[] buffer;
 
   private final Point origin;
@@ -22,34 +18,48 @@ public class Scene {
   }
 
   public Scene(int width, int height, int depth, Point origin) {
-    this.heatPoints = new float[width * height * depth];
-    this.heatPoints[3] = 100;
     this.buffer = new float[width * height * depth];
-    this.heatCoeffs = new float[width * height * depth];
-    Arrays.fill(this.heatCoeffs, 0.1F);
+    this.heatData = new HeatData(width, height, depth);
     this.origin = origin;
     this.width = width;
     this.height = height;
     this.depth = depth;
   }
 
-  public float[] heatCoeffs() {
-    return this.heatCoeffs;
-  }
-
   public float[] buffer() {
     return this.buffer;
   }
 
-  public void setHeat(int x, int y, int z, float heat) {
-    this.heatPoints[this.width * this.height * x + this.height * y + z] = heat;
+  public HeatData heatData() {
+    return this.heatData;
   }
 
-  public float[] heatPoints() {
-    return this.heatPoints;
+  public int width() {
+    return this.width;
   }
 
-  public int length() {
+  public int volume() {
     return this.width * this.height * this.depth;
+  }
+
+  public class HeatData {
+    volatile float[] heatPoints;
+    volatile float[] heatCoeffs;
+    public HeatData(int width, int height, int depth) {
+      this.heatPoints = new float[width * height * depth];
+      this.heatCoeffs = new float[width * height * depth];
+    }
+
+    public float[] heatPoints() {
+      return this.heatPoints;
+    }
+
+    public void setHeat(float heat, int x, int y, int z) {
+      this.heatPoints[width * height * x + height * y + z] = heat;
+    }
+
+    public float[] heatCoeffs() {
+      return this.heatCoeffs;
+    }
   }
 }
