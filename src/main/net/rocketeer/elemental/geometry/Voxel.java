@@ -1,26 +1,26 @@
 package net.rocketeer.elemental.geometry;
 
 public class Voxel {
-  private Point point;
+  private Vector vector;
   private final Material material;
   private final double temperature;
 
   public Voxel(Material material, int temperature) {
-    this(material, temperature, new Point(0, 0, 0));
+    this(material, temperature, new Vector(0, 0, 0));
   }
 
-  public Voxel(Material material, int temperature, Point point) {
-    this.point = point;
+  public Voxel(Material material, int temperature, Vector vector) {
+    this.vector = vector;
     this.material = material;
     this.temperature = temperature;
   }
 
   public void setPoint(int x, int y, int z) {
-    this.point = new Point(x, y, z);
+    this.vector = new Vector(x, y, z);
   }
 
-  public Point point() {
-    return this.point;
+  public Vector point() {
+    return this.vector;
   }
 
   public Material material() {
