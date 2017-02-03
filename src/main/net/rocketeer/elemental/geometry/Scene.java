@@ -1,12 +1,17 @@
 package net.rocketeer.elemental.geometry;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 public class Scene {
   private final int width;
   private final int height;
   private final int depth;
   private final HeatData heatData;
-  private final VelocityField velocityField;
+  private final FluidField fluidField;
   private float[] buffer;
+  private boolean[] wallBlocks;
 
   private final Vector<Integer> origin;
 
@@ -20,8 +25,9 @@ public class Scene {
 
   public Scene(int width, int height, int depth, Vector<Integer> origin) {
     this.buffer = new float[width * height * depth];
+    this.wallBlocks = new boolean[width * height * depth];
     this.heatData = new HeatData(width, height, depth);
-    this.velocityField = new VelocityField(width, height, depth);
+    this.fluidField = new FluidField();
     this.origin = origin;
     this.width = width;
     this.height = height;
@@ -36,8 +42,8 @@ public class Scene {
     return this.heatData;
   }
 
-  public VelocityField velocityField() {
-    return this.velocityField;
+  public FluidField fluidField() {
+    return this.fluidField;
   }
 
   public int width() {
@@ -48,39 +54,13 @@ public class Scene {
     return this.width * this.height * this.depth;
   }
 
-  public class VelocityField {
-    float[] fieldU;
-    float[] fieldV;
-    float[] fieldW;
-    public VelocityField(int width, int height, int depth) {
-      this.fieldU = new float[width * height * depth];
-      this.fieldV = new float[width * height * depth];
-      this.fieldW = new float[width * height * depth];
-    }
-
-    public float[] fieldU() {
-      return this.fieldU;
-    }
-
-    public float[] fieldV() {
-      return this.fieldV;
-    }
-
-    public float[] fieldW() {
-      return this.fieldW;
-    }
-
-    public void setVelocity(int x, int y, int z, float u, float v, float w) {
-      int index = width * height * x + height * y + z;
-      this.fieldU[index] = u;
-      this.fieldV[index] = v;
-      this.fieldW[index] = w;
-    }
-
-    public Vector<Float> velocity(int x, int y, int z) {
-      int index = width * height * x + height * y + z;
-      return new Vector<>(this.fieldU[index], this.fieldV[index], this.fieldW[index]);
-    }
+  public class FluidField {
+    public float[] velocitiesX = new float[0];
+    public float[] velocitiesY = new float[0];
+    public float[] velocitiesZ = new float[0];
+    public float[] positionsX = new float[0];
+    public float[] positionsY = new float[0];
+    public float[] positionsZ = new float[0];
   }
 
   public class HeatData {

@@ -188,3 +188,130 @@ advection(float *fieldU, float *fieldV, float *fieldW, float dt, int fieldLength
   cudaFree(dResultV);
   cudaFree(dResultW);
 }
+
+__global__ void sph_density_gpu(float *posX, float *posY, float *posZ, float *density, int nParticles) {
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid >= nParticles)
+    return;
+  float rho = 0;  
+  float x = posX[gid];
+  float y = posY[gid];
+  float z = posZ[gid];
+  float pi = 3.141592654f;
+  for (int i = 0; i < nParticles; ++i) {
+    float dX = posX[i] - x;
+    float dY = posY[i] - y;
+    float dZ = posZ[i] - z;
+    float dist = dX * dX + dY * dY + dZ * dZ;
+    if (dist <= 1)
+      rho += (1 - (3.0 / 2) * dist * (1 - sqrtf(dist) / 2)) * (1 / (pi * 8));
+    else if (dist <= 4)
+      rho += powf(2 - sqrtf(dist), 3) * (1 / (4 * pi * 8));
+  }
+  density[gid] = rho;
+}
+
+__global__ void sph_accel_gpu(float *posX, float *posY, float *posZ, float *velX, float *velY, float *velZ, float *density, bool *wallBlocks, float dt, int nParticles, int fieldLength) {
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid >= nParticles)
+    return;
+  float3 a = make_float3(0, -9.81, 0);
+  float x = posX[gid];
+  float y = posY[gid];
+  float z = posZ[gid];
+  float pi = 3.141592654f;
+  float rhoi = density[gid];
+  float3 force = make_float3(0, 0, 0);
+  for (int i = 0; i < nParticles; ++i) {
+    if (i == gid)
+      continue;
+    float3 dX = make_float3(x - posX[i], y - posY[i], z - posZ[i]);
+    float dist = dX.x * dX.x + dX.y * dX.y + dX.z * dX.z;
+    if (dist > 4)
+      continue;
+    float rhoj = density[i];
+    float qij = max(sqrtf(dist) / 2, 0.0005);
+    float k1 = 1 / (pi * 16 * rhoj) * (1 - qij) * (70 * (rhoi + rhoj - 0.2) * (1 - qij) / qij);
+    force.x += k1 * dX.x;
+    force.y += k1 * dX.y;
+    force.z += k1 * dX.z;
+  }
+  a.x = force.x / rhoi;
+  a.y = force.y / rhoi - 9.81;
+  a.z = force.z / rhoi;
+  velX[gid] += a.x * dt;
+  velY[gid] += a.y * dt;
+  velZ[gid] += a.z * dt;
+  int newX = (int) (posX[gid] + velX[gid] * dt);
+  int newY = (int) (posY[gid] + velY[gid] * dt);
+  int newZ = (int) (posZ[gid] + velZ[gid] * dt);
+  if (newX >= fieldLength || newX < 0) {
+    velX[gid] = -velX[gid];
+    velX[gid] *= 0.15;
+  }
+  if (newY >= fieldLength || newY < 0) {
+    velY[gid] = -velY[gid];
+    velY[gid] *= 0.15;
+  }
+  if (newZ >= fieldLength || newZ < 0) {
+    velZ[gid] = -velZ[gid];
+    velZ[gid] *= 0.15;
+  }
+  if (wallBlocks[newX * fieldLength * fieldLength + newY * fieldLength + newZ]) {
+    if (wallBlocks[newX * fieldLength * fieldLength + fieldLength * (int) (posY[gid]) + (int) (posZ[gid])]) {
+      velX[gid] = -velX[gid];
+      velX[gid] *= 0.15;
+    }
+    if (wallBlocks[(int) (posX[gid]) * fieldLength * fieldLength + fieldLength * newY + (int) (posZ[gid])]) {
+      velY[gid] = -velY[gid];
+      velY[gid] *= 0.15;
+    }
+    if (wallBlocks[(int) (posX[gid]) * fieldLength * fieldLength + fieldLength * (int) (posY[gid]) + newZ]) {
+      velZ[gid] = -velZ[gid];
+      velZ[gid] *= 0.15;
+    }
+  }
+  posX[gid] += velX[gid] * dt;
+  posY[gid] += velY[gid] * dt;
+  posZ[gid] += velZ[gid] * dt;
+}
+
+extern "C"
+__declspec(dllexport) void __cdecl
+sph(float *posX, float *posY, float *posZ, float *velX, float *velY, float *velZ, bool *wallBlocks, float dt, int nParticles, int fieldLength) {
+  float *dPosX,*dPosY, *dPosZ, *dVelX, *dVelY, *dVelZ, *dDensity;
+  bool *dWallBlocks;
+  int particlesSize = nParticles * sizeof(float);
+  cudaMalloc((void **) &dPosX, particlesSize);
+  cudaMalloc((void **) &dPosY, particlesSize);
+  cudaMalloc((void **) &dPosZ, particlesSize);
+  cudaMalloc((void **) &dVelX, particlesSize);
+  cudaMalloc((void **) &dVelY, particlesSize);
+  cudaMalloc((void **) &dVelZ, particlesSize);
+  cudaMalloc((void **) &dDensity, particlesSize);
+  cudaMalloc((void **) &dWallBlocks, fieldLength * fieldLength * fieldLength * sizeof(bool));
+  cudaMemcpy(dPosX, posX, particlesSize, cudaMemcpyHostToDevice);
+  cudaMemcpy(dPosY, posY, particlesSize, cudaMemcpyHostToDevice);
+  cudaMemcpy(dPosZ, posZ, particlesSize, cudaMemcpyHostToDevice);
+  cudaMemcpy(dVelX, velX, particlesSize, cudaMemcpyHostToDevice);
+  cudaMemcpy(dVelY, velY, particlesSize, cudaMemcpyHostToDevice);
+  cudaMemcpy(dVelZ, velZ, particlesSize, cudaMemcpyHostToDevice);
+  cudaMemcpy(dWallBlocks, wallBlocks, fieldLength * fieldLength * fieldLength * sizeof(bool), cudaMemcpyHostToDevice);
+  int nBlocks = nParticles / 16 + 1;
+  sph_density_gpu<<<nBlocks, 16>>>(dPosX, dPosY, dPosZ, dDensity, nParticles);
+  sph_accel_gpu<<<nBlocks, 16>>>(dPosX, dPosY, dPosZ, dVelX, dVelY, dVelZ, dDensity, dWallBlocks, dt, nParticles, fieldLength);
+  cudaMemcpy(velX, dVelX, particlesSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(velY, dVelY, particlesSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(velZ, dVelZ, particlesSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(posX, dPosX, particlesSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(posY, dPosY, particlesSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(posZ, dPosZ, particlesSize, cudaMemcpyDeviceToHost);
+  cudaFree(dPosX);
+  cudaFree(dPosY);
+  cudaFree(dPosZ);
+  cudaFree(dVelX);
+  cudaFree(dVelY);
+  cudaFree(dVelZ);
+  cudaFree(dDensity);
+  cudaFree(dWallBlocks);
+}
